@@ -18,7 +18,7 @@
 using namespace std;
 using namespace net;
 
-const int ServerPort = 30000;
+const int ServerPort = 30000;	
 const int ClientPort = 30001;
 const int ProtocolId = 0x11223344;
 const float DeltaTime = 1.0f / 30.0f;
@@ -128,10 +128,12 @@ int main(int argc, char* argv[])
 		Server
 	};
 
-	Mode mode = Server;
+	Mode mode = Server; //Initializing a mode
 	Address address;
-	char message[PacketSize];
+	char message[PacketSize]; //Packet Size == 256
 
+	//This establishes the Client - The person who is sending the packet to the server
+	//The Client executes they will input an IP first and a message second
 	if (argc >= 3)
 	{
 		int a, b, c, d;
@@ -145,14 +147,16 @@ int main(int argc, char* argv[])
 	}
 
 	// initialize
-
+	//Check to see what platform the Sockets are to be run on
 	if (!InitializeSockets())
 	{
 		printf("failed to initialize sockets\n");
 		return 1;
 	}
 
-	ReliableConnection connection(ProtocolId, TimeOut);
+	ReliableConnection connection(ProtocolId, TimeOut); //P2P connection using ReliabilitySystems
+	//ReliabilitySystem allows for the management of sent, recieved, pending ack[knowledgement] and acked PacketQueues
+
 
 	const int port = mode == Server ? ServerPort : ClientPort;			// ? is like if statement
 
@@ -210,7 +214,7 @@ int main(int argc, char* argv[])
 		while (sendAccumulator > 1.0f / sendRate)		// take out of while statement?
 		{
 			unsigned char packet[PacketSize];
-			strcpy((char*)packet, message);
+			strcpy((char*)packet, message); //Add a message to be sent to the server
 			connection.SendPacket(packet, sizeof(packet));
 			sendAccumulator -= 1.0f / sendRate;
 		}

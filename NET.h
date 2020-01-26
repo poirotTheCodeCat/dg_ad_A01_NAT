@@ -99,6 +99,7 @@ namespace net
 			return address;
 		}
 
+		//IP address segmented into parts a, b, c, d
 		unsigned char GetA() const
 		{
 			return (unsigned char)(address >> 24);		// seems set the address to 24 and return 24
@@ -159,11 +160,11 @@ namespace net
 
 	// sockets
 
-	inline bool InitializeSockets()				// this is a function that 
+	inline bool InitializeSockets()				// this is a function that determines which platform is running and what data to use
 	{
 #if PLATFORM == PLATFORM_WINDOWS
 		WSADATA WsaData;
-		return WSAStartup(MAKEWORD(2, 2), &WsaData) == NO_ERROR;
+		return WSAStartup(MAKEWORD(2, 2), &WsaData) == NO_ERROR; //WSA == Windows Socket
 #else
 		return true;
 #endif
@@ -185,12 +186,12 @@ namespace net
 	{
 	public:
 
-		Socket()
+		Socket()	//Initialize
 		{
 			socket = 0;
 		}
 
-		~Socket()
+		~Socket()	//Destructor
 		{
 			Close();			// call the close function
 		}
