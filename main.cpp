@@ -68,16 +68,16 @@ public:
 
 		if (mode == Good) // checks if the state of the class variable "mode" is "Good"
 		{
-			if (rtt > RTT_Threshold)
+			if (rtt > RTT_Threshold)			// check if the round trip time is greater than threshold 
 			{
-				printf("*** dropping to bad mode ***\n");
-				mode = Bad;
+				printf("*** dropping to bad mode ***\n");		
+				mode = Bad;						// change the mode to bad 
 				if (good_conditions_time < 10.0f && penalty_time < 60.0f)
 				{
 					penalty_time *= 2.0f;
 					if (penalty_time > 60.0f)
 						penalty_time = 60.0f;
-					printf("penalty time increased to %.1f\n", penalty_time);
+					printf("penalty time increased to %.1f\n", penalty_time);		// increase the "penalty time"
 				}
 				good_conditions_time = 0.0f;
 				penalty_reduction_accumulator = 0.0f;
@@ -303,3 +303,12 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+
+
+// =================================================================
+// =================================================================
+//			This can go in a new .cpp file
+//	These are functions not included in the original
+//					example file
+// =================================================================
+// =================================================================

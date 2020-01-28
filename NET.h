@@ -749,6 +749,12 @@ namespace net
 			}
 		}
 
+		/*
+		====================================================================================================================
+				Method: generate_ack_bits
+				This method will calculate the accumulated bits by iterating through a recieved packet until |*Something Happens*|
+		====================================================================================================================
+		*/
 		static unsigned int generate_ack_bits(unsigned int ack, const PacketQueue& received_queue, unsigned int max_sequence)
 		{
 			unsigned int ack_bits = 0;
