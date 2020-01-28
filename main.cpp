@@ -30,13 +30,24 @@ const int PacketSize = 256;
 class FlowControl
 {
 public:
-
+	/*
+	Function: flowControl()
+	Parameters:	None
+	Description:	constructor
+	returns: Nothing
+	*/
 	FlowControl()
 	{
 		printf("flow control initialized\n");
 		Reset();
 	}
 
+	/*
+	Function: Reset()
+	Parameters: None
+	Description: This function resets all private members in the class to default settings
+	returns:
+	*/
 	void Reset()
 	{
 		mode = Bad;
@@ -45,11 +56,17 @@ public:
 		penalty_reduction_accumulator = 0.0f;
 	}
 
-	void Update(float deltaTime, float rtt)
+	/*
+	Function: Update()
+	Parameters: float deltaTime, float rtt
+	Description: modifies class variables based on the round trip time of a connection
+	returns: nothing
+	*/
+	void Update(float deltaTime, float rtt)	// note: rtt stands for round trip time 
 	{
-		const float RTT_Threshold = 250.0f;
+		const float RTT_Threshold = 250.0f;		
 
-		if (mode == Good)
+		if (mode == Good) // checks if the state of the class variable "mode" is "Good"
 		{
 			if (rtt > RTT_Threshold)
 			{
@@ -98,6 +115,12 @@ public:
 		}
 	}
 
+	/*
+	Function:
+	Parameters:
+	Description:
+	returns:
+	*/
 	float GetSendRate()
 	{
 		return mode == Good ? 30.0f : 10.0f;
@@ -117,6 +140,8 @@ private:
 	float penalty_reduction_accumulator;
 };
 
+// ----------------------------------------------
+// ==============================================
 // ----------------------------------------------
 
 int main(int argc, char* argv[])
@@ -155,50 +180,50 @@ int main(int argc, char* argv[])
 
 	ReliableConnection connection(ProtocolId, TimeOut);
 
-	const int port = mode == Server ? ServerPort : ClientPort;			// ? is like if statement
+	const int port = mode == Server ? ServerPort : ClientPort;			// ? is like if statement - mode==Server -> true: ServerPort | false: ClientPort
 
-	if (!connection.Start(port))
+	if (!connection.Start(port))		// attempt to start a connection on the specified port | if false enter IF statement 
 	{
 		printf("could not start connection on port %d\n", port);
 		return 1;
 	}
 
-	if (mode == Client)
+	if (mode == Client)		// if we are in client mode then attempt to connect to a specified IP address
 		connection.Connect(address);
 	else
-		connection.Listen();
+		connection.Listen();		// if it is a server, then listen for a connection
 
 	bool connected = false;
 	float sendAccumulator = 0.0f;
 	float statsAccumulator = 0.0f;
 
-	FlowControl flowControl;
+	FlowControl flowControl;		// initialize a FlowControl Object
 
 	while (true)
 	{
 		// update flow control
 
-		if (connection.IsConnected())
-			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);
+		if (connection.IsConnected())		// check if we are connected 
+			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);		// if we are connected then update with a constant time && round trip time 
 
-		const float sendRate = flowControl.GetSendRate();
+		const float sendRate = flowControl.GetSendRate();		// set sendRate based on the flowControl state (good || bad)
 
 		// detect changes in connection state
 
-		if (mode == Server && connected && !connection.IsConnected())
+		if (mode == Server && connected && !connection.IsConnected())	// connected should initially be false  
 		{
 			flowControl.Reset();
 			printf("reset flow control\n");
 			connected = false;
 		}
 
-		if (!connected && connection.IsConnected())
+		if (!connected && connection.IsConnected())			// check if the client is connected to the server
 		{
 			printf("client connected to server\n");
-			connected = true;
+			connected = true;					// change the status of connected to reflect the state of the connection | we are connected so set connected=true
 		}
 
-		if (!connected && connection.ConnectFailed())
+		if (!connected && connection.ConnectFailed())		// check if the connection has been broken
 		{
 			printf("connection failed\n");
 			break;
@@ -206,21 +231,21 @@ int main(int argc, char* argv[])
 
 		// send and receive packets
 
-		sendAccumulator += DeltaTime;
+		sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
 
-		while (sendAccumulator > 1.0f / sendRate)		// take out of while statement?
+		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
 		{
 			unsigned char packet[PacketSize];
 			strcpy((char*)packet, message);
 			connection.SendPacket(packet, sizeof(packet));
-			sendAccumulator -= 1.0f / sendRate;
+			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
 		}
 
 		while (true)
 		{
 			unsigned char packet[256];
 			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));		// while true constantly recieve 
-			if (bytes_read == 0)
+			if (bytes_read == 0)		// if nothin is read, return to outer while loop
 				break;
 			else
 			{
@@ -274,7 +299,7 @@ int main(int argc, char* argv[])
 		net::wait(DeltaTime);
 	}
 
-	ShutdownSockets();
+	ShutdownSockets();			// built in socket function
 
 	return 0;
 }
