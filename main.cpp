@@ -141,7 +141,11 @@ int main(int argc, char* argv[])
 		{
 			mode = Client;
 			address = Address(a, b, c, d, ServerPort);
+			//Taking the 'message'/ third argument to be parsed
+			//Send file to be parsed
+
 			sscanf(argv[2], "%s", message);
+			 
 		}
 
 	}
@@ -211,14 +215,20 @@ int main(int argc, char* argv[])
 
 		sendAccumulator += DeltaTime;
 
+		//Sending message. Looping infinite
 		while (sendAccumulator > 1.0f / sendRate)		// take out of while statement?
 		{
-			unsigned char packet[PacketSize];
-			strcpy((char*)packet, message); //Add a message to be sent to the server
-			connection.SendPacket(packet, sizeof(packet));
+			for (int i = 0; i < 8; i++)
+			{
+				unsigned char packet[PacketSize];
+				strcpy((char*)packet, message); //Add a message to be sent to the server
+				connection.SendPacket(packet, sizeof(packet));
+
+			}
 			sendAccumulator -= 1.0f / sendRate;
 		}
 
+		//Looping infinite to recieve messages
 		while (true)
 		{
 			unsigned char packet[256];
