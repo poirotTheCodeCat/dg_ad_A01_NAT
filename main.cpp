@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
 
 	Mode mode = Server;
 	Address address;
-	char message[PacketSize];
+	char fileName[PacketSize];
 
 	if (argc >= 3)
 	{
@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 		{
 			mode = Client;
 			address = Address(a, b, c, d, ServerPort);
-			sscanf(argv[2], "%s", message);
+			sscanf(argv[2], "%s", fileName);
 		}
 
 	}
@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
 		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
 		{
 			unsigned char packet[PacketSize];
-			strcpy((char*)packet, message);
+			strcpy((char*)packet, fileName);
 			connection.SendPacket(packet, sizeof(packet));
 			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
 		}
@@ -312,3 +312,4 @@ int main(int argc, char* argv[])
 //					example file
 // =================================================================
 // =================================================================
+
