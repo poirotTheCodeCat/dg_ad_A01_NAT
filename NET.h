@@ -42,7 +42,6 @@
 #error unknown platform!
 
 #endif
-
 #include <assert.h>
 #include <vector>
 #include <map>
@@ -460,6 +459,7 @@ namespace net
 			if (address.GetAddress() == 0)
 				return false;
 			unsigned char packet[sizePacket];
+			//Preset 4 packets only
 			packet[0] = (unsigned char)(protocolId >> 24);
 			packet[1] = (unsigned char)((protocolId >> 16) & 0xFF);
 			packet[2] = (unsigned char)((protocolId >> 8) & 0xFF);

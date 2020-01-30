@@ -1,21 +1,23 @@
 /*
-This will create a packet for the file to be sent in either ASCII or
-Binary code. Take the file name, header, content and the footer.
+*	FILE			: Client.cpp
+*	PROJECT			: SENG204 - Network Application Development
+*	PROGRAMMER		: Amy Dayasundara, Daniel Grew
+*	FIRST VERSION	: 2020 - 01 -28
+*	DESCRIPTION		:
+*		This contains the client side information where the file is 
+*		opened, parsed and formed into packets. It will send how many 
+*		packet are to be read and will cross reference to make sure each
+*		packet is properly sent. 
 */
-//#include "NET.h"
-//DO NOT USE STRING FUNCTIONS 
-//SENDER
-
-//Figure out type of file that needs to be parsed
+#include <stdio.h>
 
 
-//Function to parse the file that needs to be sent
+void clientLove()
+{
+	printf("Hello to you too love.\n");
+}
 
-//Parse for the ASCII file
-
-//Parse for the binary file
-
-//When parsing send separate components of the file, do not send at once
-
-//Recieve the final message, validate and send acceptance?
-
+int typeOfFile()
+{
+	return 0;
+}

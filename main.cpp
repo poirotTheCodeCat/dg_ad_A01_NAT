@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "Net.h"
+#include "ReliableOrderHeader.h"
+
 
 #pragma warning(disable: 4996)
 
@@ -121,6 +123,7 @@ private:
 int main(int argc, char* argv[])
 {
 	// parse command line
+	test();
 
 	enum Mode
 	{
@@ -162,7 +165,7 @@ int main(int argc, char* argv[])
 	//ReliabilitySystem allows for the management of sent, recieved, pending ack[knowledgement] and acked PacketQueues
 
 
-	const int port = mode == Server ? ServerPort : ClientPort;			// ? is like if statement
+	const int port = mode == Server ? ServerPort : ClientPort;			// Conditional Ternary operator
 
 	if (!connection.Start(port))
 	{
@@ -218,13 +221,9 @@ int main(int argc, char* argv[])
 		//Sending message. Looping infinite
 		while (sendAccumulator > 1.0f / sendRate)		// take out of while statement?
 		{
-			for (int i = 0; i < 8; i++)
-			{
 				unsigned char packet[PacketSize];
 				strcpy((char*)packet, message); //Add a message to be sent to the server
 				connection.SendPacket(packet, sizeof(packet));
-
-			}
 			sendAccumulator -= 1.0f / sendRate;
 		}
 
