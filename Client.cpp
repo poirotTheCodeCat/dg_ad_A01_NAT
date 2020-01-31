@@ -10,14 +10,43 @@
 *		packet is properly sent. 
 */
 #include <stdio.h>
+#pragma warning(disable: 4996)
 
+using namespace std;
 
 void clientLove()
 {
 	printf("Hello to you too love.\n");
 }
 
-int typeOfFile()
+
+char* dataFromFile(char* fileName)
 {
-	return 0;
+	char data[1024] = { 0 };
+	FILE* fileExtraction = NULL;
+	int numbBytesRead = 0;
+	char dataFromFile[1024] = { 0 };
+
+	fileExtraction = fopen(fileName, "rb");
+
+	if (fileExtraction == NULL)
+	{
+		printf("Issue with file");
+	}
+	else
+	{
+		while (!feof(fileExtraction))
+		{
+			if ((numbBytesRead = fread(dataFromFile, sizeof(char), 1024, fileExtraction)) != 0)
+			{
+				//Convert the png to Binary(?)
+			}
+		}
+		if (fclose(fileExtraction) != 0)
+		{
+			printf("Error for closing file.\n");
+		}
+	}
+	
+	return data;
 }

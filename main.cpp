@@ -133,10 +133,10 @@ int main(int argc, char* argv[])
 
 	Mode mode = Server; //Initializing a mode
 	Address address;
-	char message[PacketSize]; //Packet Size == 256
-
+	char fileName[PacketSize]; //Packet Size == 256
+	char* data = 0;
 	//This establishes the Client - The person who is sending the packet to the server
-	//The Client executes they will input an IP first and a message second
+	//The Client executes they will input an IP first and a fileName second
 	if (argc >= 3)
 	{
 		int a, b, c, d;
@@ -144,11 +144,11 @@ int main(int argc, char* argv[])
 		{
 			mode = Client;
 			address = Address(a, b, c, d, ServerPort);
-			//Taking the 'message'/ third argument to be parsed
+			//Taking the 'fileName'/ third argument to be parsed
 			//Send file to be parsed
 
-			sscanf(argv[2], "%s", message);
-			 
+			sscanf(argv[2], "%s", fileName);
+			data = dataFromFile(fileName);
 		}
 
 	}
@@ -218,16 +218,16 @@ int main(int argc, char* argv[])
 
 		sendAccumulator += DeltaTime;
 
-		//Sending message. Looping infinite
+		//Sending fileName. Looping infinite
 		while (sendAccumulator > 1.0f / sendRate)		// take out of while statement?
 		{
 				unsigned char packet[PacketSize];
-				strcpy((char*)packet, message); //Add a message to be sent to the server
+				strcpy((char*)packet, fileName); //Add a fileName to be sent to the server
 				connection.SendPacket(packet, sizeof(packet));
 			sendAccumulator -= 1.0f / sendRate;
 		}
 
-		//Looping infinite to recieve messages
+		//Looping infinite to recieve fileNames
 		while (true)
 		{
 			unsigned char packet[256];

@@ -30,3 +30,4 @@ struct PacketData
 //PROTOTYPES
 void test();
 void clientLove();
+char* dataFromFile(char* fileName);
