@@ -123,6 +123,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="constants.h" />
+    <ClInclude Include="FlowControl.h" />
     <ClInclude Include="NET.h" />
   </ItemGroup>
   <ItemGroup>

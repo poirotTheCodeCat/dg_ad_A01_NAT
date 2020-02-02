@@ -9,6 +9,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "constants.h"
+#include"FlowControl.h"
 
 #include "Net.h"
 
@@ -27,122 +29,6 @@ const float SendRate = 1.0f / 30.0f;
 const float TimeOut = 10.0f;
 const int PacketSize = 256;
 
-class FlowControl
-{
-public:
-	/*
-	Function: flowControl()
-	Parameters:	None
-	Description:	constructor
-	returns: Nothing
-	*/
-	FlowControl()
-	{
-		printf("flow control initialized\n");
-		Reset();
-	}
-
-	/*
-	Function: Reset()
-	Parameters: None
-	Description: This function resets all private members in the class to default settings
-	returns:
-	*/
-	void Reset()
-	{
-		mode = Bad;
-		penalty_time = 4.0f;
-		good_conditions_time = 0.0f;
-		penalty_reduction_accumulator = 0.0f;
-	}
-
-	/*
-	Function: Update()
-	Parameters: float deltaTime, float rtt
-	Description: modifies class variables based on the round trip time of a connection
-	returns: nothing
-	*/
-	void Update(float deltaTime, float rtt)	// note: rtt stands for round trip time 
-	{
-		const float RTT_Threshold = 250.0f;		
-
-		if (mode == Good) // checks if the state of the class variable "mode" is "Good"
-		{
-			if (rtt > RTT_Threshold)			// check if the round trip time is greater than threshold 
-			{
-				printf("*** dropping to bad mode ***\n");		
-				mode = Bad;						// change the mode to bad 
-				if (good_conditions_time < 10.0f && penalty_time < 60.0f)
-				{
-					penalty_time *= 2.0f;
-					if (penalty_time > 60.0f)
-						penalty_time = 60.0f;
-					printf("penalty time increased to %.1f\n", penalty_time);		// increase the "penalty time"
-				}
-				good_conditions_time = 0.0f;
-				penalty_reduction_accumulator = 0.0f;
-				return;
-			}
-
-			good_conditions_time += deltaTime;
-			penalty_reduction_accumulator += deltaTime;
-
-			if (penalty_reduction_accumulator > 10.0f && penalty_time > 1.0f)
-			{
-				penalty_time /= 2.0f;
-				if (penalty_time < 1.0f)
-					penalty_time = 1.0f;
-				printf("penalty time reduced to %.1f\n", penalty_time);
-				penalty_reduction_accumulator = 0.0f;
-			}
-		}
-
-		if (mode == Bad)
-		{
-			if (rtt <= RTT_Threshold)
-				good_conditions_time += deltaTime;
-			else
-				good_conditions_time = 0.0f;
-
-			if (good_conditions_time > penalty_time)
-			{
-				printf("*** upgrading to good mode ***\n");
-				good_conditions_time = 0.0f;
-				penalty_reduction_accumulator = 0.0f;
-				mode = Good;
-				return;
-			}
-		}
-	}
-
-	/*
-	Function:
-	Parameters:
-	Description:
-	returns:
-	*/
-	float GetSendRate()
-	{
-		return mode == Good ? 30.0f : 10.0f;
-	}
-
-private:
-
-	enum Mode
-	{
-		Good,
-		Bad
-	};
-
-	Mode mode;
-	float penalty_time;
-	float good_conditions_time;
-	float penalty_reduction_accumulator;
-};
-
-// ----------------------------------------------
-// ==============================================
-// ----------------------------------------------
 
 int main(int argc, char* argv[])
 {
@@ -167,25 +53,33 @@ int main(int argc, char* argv[])
 			address = Address(a, b, c, d, ServerPort);
 			sscanf(argv[2], "%s", fileName);
 		}
-
 	}
+
+	//// check if the file exists
+	//FILE* file = NULL;
+	//file = fopen(fileName, readBin);		// open file as binary file
+	//if (file == NULL)					// check if file exists
+	//{
+	//	printf("The file %s does not exist \n", fileName);
+	//	return error;
+	//}
 
 	// initialize
 
 	if (!InitializeSockets())
 	{
 		printf("failed to initialize sockets\n");
-		return 1;
+		return error;
 	}
 
 	ReliableConnection connection(ProtocolId, TimeOut);
 
 	const int port = mode == Server ? ServerPort : ClientPort;			// ? is like if statement - mode==Server -> true: ServerPort | false: ClientPort
 
-	if (!connection.Start(port))		// attempt to start a connection on the specified port | if false enter IF statement 
+	if (!connection.Start(port))		// starts as true - starts connection on specific port
 	{
 		printf("could not start connection on port %d\n", port);
-		return 1;
+		return error;
 	}
 
 	if (mode == Client)		// if we are in client mode then attempt to connect to a specified IP address
@@ -199,7 +93,7 @@ int main(int argc, char* argv[])
 
 	FlowControl flowControl;		// initialize a FlowControl Object
 
-	while (true)
+	while (true)	//while not at the end of file		
 	{
 		// update flow control
 
@@ -249,7 +143,7 @@ int main(int argc, char* argv[])
 				break;
 			else
 			{
-				printf("%s", packet);
+				printf("packet is %s \n", packet);
 			}
 		}
 
@@ -276,10 +170,11 @@ int main(int argc, char* argv[])
 
 		statsAccumulator += DeltaTime;
 
-		/*
-		while ( statsAccumulator >= 0.25f && connection.IsConnected() )		// continuously listens to client
+		// reset buffer
+
+		while ( statsAccumulator >= 0.25f && connection.IsConnected())		// continuously listens to server
 		{
-			float rtt = connection.GetReliabilitySystem().GetRoundTripTime();
+			float rtt = connection.GetReliabilitySystem().GetRoundTripTime();		// time to complete round trip
 
 			unsigned int sent_packets = connection.GetReliabilitySystem().GetSentPackets();
 			unsigned int acked_packets = connection.GetReliabilitySystem().GetAckedPackets();
@@ -291,11 +186,10 @@ int main(int argc, char* argv[])
 			printf( "rtt %.1fms, sent %d, acked %d, lost %d (%.1f%%), sent bandwidth = %.1fkbps, acked bandwidth = %.1fkbps\n",
 				rtt * 1000.0f, sent_packets, acked_packets, lost_packets,
 				sent_packets > 0.0f ? (float) lost_packets / (float) sent_packets * 100.0f : 0.0f,
-				sent_bandwidth, acked_bandwidth );		// prints to screen
+				sent_bandwidth, acked_bandwidth );								// prints to screen
 
 			statsAccumulator -= 0.25f;
 		}
-		*/
 		net::wait(DeltaTime);
 	}
 
