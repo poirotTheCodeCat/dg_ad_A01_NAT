@@ -22,11 +22,11 @@ struct Header
 	uint16_t ack;
 	uint32_t ack_bits;
 };
-
-struct PacketData
-{
-	bool acked;
-};
+//
+//struct PacketData
+//{
+//	bool acked;
+//};
 //PROTOTYPES
 void test();
 void clientLove();

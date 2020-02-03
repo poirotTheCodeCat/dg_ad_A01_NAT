@@ -37,10 +37,8 @@ char* dataFromFile(char* fileName)
 	{
 		while (!feof(fileExtraction))
 		{
-			if ((numbBytesRead = fread(dataFromFile, sizeof(char), 1024, fileExtraction)) != 0)
-			{
-				//Convert the png to Binary(?)
-			}
+			numbBytesRead = fread(data, sizeof(char), 1024, fileExtraction);
+			
 		}
 		if (fclose(fileExtraction) != 0)
 		{

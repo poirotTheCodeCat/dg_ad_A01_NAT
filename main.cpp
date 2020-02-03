@@ -175,6 +175,9 @@ int main(int argc, char* argv[])
 
 	if (mode == Client)
 		connection.Connect(address);
+		//Enter open file for client 
+		//Send file name to server
+
 	else
 		connection.Listen();
 
@@ -221,13 +224,14 @@ int main(int argc, char* argv[])
 		//Sending fileName. Looping infinite
 		while (sendAccumulator > 1.0f / sendRate)		// take out of while statement?
 		{
+			//file name will be the same
 				unsigned char packet[PacketSize];
 				strcpy((char*)packet, fileName); //Add a fileName to be sent to the server
 				connection.SendPacket(packet, sizeof(packet));
 			sendAccumulator -= 1.0f / sendRate;
 		}
 
-		//Looping infinite to recieve fileNames
+		//Looping infinite to recieve file data 
 		while (true)
 		{
 			unsigned char packet[256];
