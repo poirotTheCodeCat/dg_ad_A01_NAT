@@ -73,9 +73,6 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	FILE* readFile = NULL;		// this will be read from if we are the client
-	FILE* writeFile = NULL;		// this will be written to if we are the server
-
 	// initialize
 
 	if (!InitializeSockets())
@@ -339,7 +336,7 @@ bool client(ReliableConnection& connection, char* fileName)
 	clearBuffer(packet);
 	clearBuffer(confirm);
 
-	while (fread(packet, sizeof(char), PacketSize * sizeof(char), sendFile) != NULL)		// begin reading from the file
+	while (fread(packet, sizeof(char), PacketSize, sendFile) != NULL)		// begin reading from the file
 	{
 		if (!updateConnection(connection, flowControl, &connected, mode))
 		{
@@ -417,14 +414,17 @@ Returns:
 bool sendLine(ReliableConnection& connection, char* line, float* sendAccumulator, FlowControl& flowControl)
 {
 		*sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
+		unsigned char packet[PacketSize];
+		memcpy((char*)packet, line, PacketSize);
 
 		while (*sendAccumulator > 1.0f / flowControl.GetSendRate())		// sendrate is a constant | send until sendAccumulator runs out
 		{
-			unsigned char packet[PacketSize];
-			strcpy((char*)packet, line);
 			connection.SendPacket(packet, sizeof(packet));
 			*sendAccumulator -= 1.0f / flowControl.GetSendRate();		// subtracts from sendAccumulator every time a packet is sent
 		}
+		printf("Sent : %s \n", packet);
+		//Clean packet because its trying to overwrite packet values 
+
 		return true;
 }
 
@@ -450,7 +450,7 @@ void RecieveLine(ReliableConnection& connection, char* recieveBuffer)
 				printf("Recieved: %s \n", packet);
 				if (strcmp((char* )packet, "") != 0 && strcmp(bufferRecieve, (char *)packet) != 0)	// determine if we can use the packet
 				{
-					strcpy(bufferRecieve, (char*)packet);		// copy the contents of the recieved packet to the buffer
+					memcpy(bufferRecieve, (char*)packet, PacketSize);		// copy the contents of the recieved packet to the buffer
 				}
 		}
 	}
