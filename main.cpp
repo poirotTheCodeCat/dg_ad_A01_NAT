@@ -339,7 +339,7 @@ bool client(ReliableConnection& connection, char* fileName)
 	clearBuffer(packet);
 	clearBuffer(confirm);
 
-	while (fread(packet, sizeof(char), strlen(packet) * sizeof(char), sendFile) != 0)		// begin reading from the file
+	while (fread(packet, sizeof(char), PacketSize * sizeof(char), sendFile) != NULL)		// begin reading from the file
 	{
 		if (!updateConnection(connection, flowControl, &connected, mode))
 		{
@@ -365,7 +365,7 @@ Returns:
 */
 void clearBuffer(char* buffer)
 {
-	size_t buffLen = strlen(buffer);;
+	size_t buffLen = strlen(buffer);
 	for (size_t i = 0; i < buffLen; i++)
 	{
 		buffer[i] = '\0';
