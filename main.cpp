@@ -29,51 +29,42 @@ const float SendRate = 1.0f / 30.0f;
 const float TimeOut = 10.0f;
 const int PacketSize = 256;
 
-struct packetStruct
-{
-	int packetNum;
-	int totalPackets;
-	char packetContent;
-};
-
-enum Mode
-{
-	Client,
-	Server
-};
-
-void clearBuffer(char* buffer);
-bool server(ReliableConnection connection);
-bool client(ReliableConnection connection, char* fileName);
+int calculateNumPackets(FILE* file);
 
 int main(int argc, char* argv[])
 {
-	// parse command line
+	enum Mode
+	{
+		Client,
+		Server
+	};
 
+	Mode mode = Server;					// initially set the mode to server
+	Address address;					// used to store the IP address
 
-	Mode mode = Server;
-	Address address;
-	char fileName[PacketSize] = "";
-	char readBuffer[PacketSize] = "";
-	char writeBuffer[PacketSize] = "";
+	int packetsSent = 0;				// used to kep track of the number of packets sent
 
-	if (argc >= 3)
+	char fileName[fileNameSize] = "";
+
+	if (argc == 3)			// check for arguments 
 	{
 		int a, b, c, d;
-		if (sscanf_s(argv[1], "%d.%d.%d.%d", &a, &b, &c, &d))
+
+		if ((sscanf_s(argv[1], "%d.%d.%d.%d", &a, &b, &c, &d)) != 0)		// read in the specified IP Address
 		{
 			mode = Client;
 			address = Address(a, b, c, d, ServerPort);
-			sscanf(argv[2], "%s", fileName);
 		}
+		strcpy(fileName, argv[2]);
 	}
 
-	FILE* readFile = NULL;		// this will be read from if we are the client
-	FILE* writeFile = NULL;		// this will be written to if we are the server
 
-	// initialize
+	else if (argc > 3)		// check if the user entered too many values
+	{
+		printf("Too many commands in the command prompt \n");
+	}
 
-	if (!InitializeSockets())
+	if (!InitializeSockets())			// initialize the sockets to use 
 	{
 		printf("failed to initialize sockets\n");
 		return error;
@@ -81,225 +72,148 @@ int main(int argc, char* argv[])
 
 	ReliableConnection connection(ProtocolId, TimeOut);
 
-	const int port = mode == Server ? ServerPort : ClientPort;			// ? is like if statement - mode==Server -> true: ServerPort | false: ClientPort
+	const int port = mode == Server ? ServerPort : ClientPort;			// determine the port based on the current user's mode
 
-	if (!connection.Start(port))		// starts as true - starts connection on specific port
+	if (!connection.Start(port))						// check if we can connect over the port
 	{
 		printf("could not start connection on port %d\n", port);
 		return error;
 	}
 
-	if (mode == Client)		// if we are in client mode then attempt to connect to a specified IP address
-	{
-		connection.Connect(address);
-		client(connection, fileName);
-	}
+
+	if (mode == Client)
+		connection.Connect(address);		// connect to the specified address
+
 	else
-	{
-		connection.Listen();		// if it is a server, then listen for a connection
-		server(connection);
-	}
-
-//	bool connected = false;
-//	float sendAccumulator = 0.0f;
-//	float statsAccumulator = 0.0f;
-//
-//	FlowControl flowControl;		// initialize a FlowControl Object
-//
-//
-//	while (true)	//while not at the end of file		
-//	{
-//		// update flow control
-//
-//		if (connection.IsConnected())		// check if we are connected 
-//			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);		// if we are connected then update with a constant time && round trip time 
-//
-//		const float sendRate = flowControl.GetSendRate();		// set sendRate based on the flowControl state (good || bad)
-//
-//		// detect changes in connection state
-//
-//		if (mode == Server && connected && !connection.IsConnected())	// connected should initially be false  
-//		{
-//			flowControl.Reset();
-//			printf("reset flow control\n");
-//			connected = false;
-//		}
-//
-//		if (!connected && connection.IsConnected())			// check if the client is connected to the server
-//		{
-//			printf("client connected to server\n");
-//			connected = true;					// change the status of connected to reflect the state of the connection | we are connected so set connected=true
-//		}
-//
-//		if (!connected && connection.ConnectFailed())		// check if the connection has been broken
-//		{
-//			printf("connection failed\n");
-//			break;
-//		}
-//
-//		// send packet containing fileName
-//
-//		// send and receive packets
-//
-//		sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
-//
-//		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
-//		{
-//			unsigned char packet[PacketSize];
-//			strcpy((char*)packet, fileName);
-//			connection.SendPacket(packet, sizeof(packet));
-//			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
-//		}
-//
-//		while (true)
-//		{
-//			unsigned char packet[256];
-//			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));		// while true constantly recieve 
-//			if (bytes_read == 0)							// if nothin is read, return to outer while loop
-//			{
-//				break;
-//			}
-//			else
-//			{
-//				 printf("Recieved: %s \n", packet);
-//			}
-//		}
-//
-//		// show packets that were acked this frame
-//
-//#ifdef SHOW_ACKS
-//		unsigned int* acks = NULL;
-//		int ack_count = 0;
-//		connection.GetReliabilitySystem().GetAcks(&acks, ack_count);
-//		if (ack_count > 0)
-//		{
-//			printf("acks: %d", acks[0]);
-//			for (int i = 1; i < ack_count; ++i)
-//				printf(",%d", acks[i]);
-//			printf("\n");
-//		}
-//#endif
-//
-//		// update connection
-//
-//		connection.Update(DeltaTime);		// use this to determine if the connection has timed out
-//
-//		// show connection stats
-//
-//		statsAccumulator += DeltaTime;
-//
-//		// reset buffer
-//
-//		while ( statsAccumulator >= 0.25f && connection.IsConnected())		// continuously listens to server
-//		{
-//			float rtt = connection.GetReliabilitySystem().GetRoundTripTime();		// time to complete round trip
-//
-//			unsigned int sent_packets = connection.GetReliabilitySystem().GetSentPackets();
-//			unsigned int acked_packets = connection.GetReliabilitySystem().GetAckedPackets();
-//			unsigned int lost_packets = connection.GetReliabilitySystem().GetLostPackets();
-//
-//			float sent_bandwidth = connection.GetReliabilitySystem().GetSentBandwidth();
-//			float acked_bandwidth = connection.GetReliabilitySystem().GetAckedBandwidth();
-//
-//			printf( "rtt %.1fms, sent %d, acked %d, lost %d (%.1f%%), sent bandwidth = %.1fkbps, acked bandwidth = %.1fkbps\n",
-//				rtt * 1000.0f, sent_packets, acked_packets, lost_packets,
-//				sent_packets > 0.0f ? (float) lost_packets / (float) sent_packets * 100.0f : 0.0f,
-//				sent_bandwidth, acked_bandwidth );								// prints to screen
-//
-//			statsAccumulator -= 0.25f;
-//		}
-//		net::wait(DeltaTime);
-//
-//
-//	}
-
-	ShutdownSockets();			// built in socket function
-
-	return 0;
-}
+		connection.Listen();				// set connection state to Listening
 
 
-// =================================================================
-// =================================================================
-//			This can go in a new .cpp file
-//	These are functions not included in the original
-//					example file
-// =================================================================
-// =================================================================
-
-/*
-Function:
-Parameters:
-Description:
-Returns:
-*/
-bool server(ReliableConnection connection)
-{
-	Mode mode = Client;
-	bool fileNameRecieved = false;
 	bool connected = false;
 	float sendAccumulator = 0.0f;
 	float statsAccumulator = 0.0f;
-	char RecieveLine[PacketSize] = "";
-	char fileName[PacketSize] = "";
 
-	FlowControl flowControl;		// initialize a FlowControl Object
+	FlowControl flowControl;
+	FILE* readFile = NULL;					// file used by client
+	FILE* writeFile = NULL;					// file used by server
 
-	// wait to recieve first packet containing fileName
-	while (!fileNameRecieved)	//while not at the end of file		
+	int expectedPackets = 0;
+
+	if (mode == Client)
 	{
-		// update flow control
+		if ((readFile = fopen(fileName, readBin)) == NULL)				// check if file exists - if yes - open for writing 
+		{
+			printf("file does not exist \n");
+			return error;
+		}
+	}
 
-		if (connection.IsConnected())		// check if we are connected 
-			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);		// if we are connected then update with a constant time && round trip time 
+	while (true)				// constantly loop through send and recieve functionality
+	{
+		if (connection.IsConnected())
+			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);
 
-		const float sendRate = flowControl.GetSendRate();		// set sendRate based on the flowControl state (good || bad)
+		const float sendRate = flowControl.GetSendRate();
 
-		if (!connected && connection.IsConnected())			// check if the client is connected to the server
+		if (mode == Server && connected && !connection.IsConnected())
+		{
+			flowControl.Reset();
+			printf("reset flow control\n");
+			connected = false;
+		}
+
+		if (!connected && connection.IsConnected())
 		{
 			printf("client connected to server\n");
-			connected = true;					// change the status of connected to reflect the state of the connection | we are connected so set connected=true
+			connected = true;
+
+			char packet[sizeof(fileName)];
+
+			if (mode == Client)				// if we are the client, send the fileName to the server as the initial packet
+			{
+				// ================================
+				// Construct Initial Packet
+				// ================================
+
+				char initialPacket[PacketSize] = "";
+				sprintf(initialPacket, "%s-%d", fileName, calculateNumPackets(readFile));		// create initial
+
+				// ================================
+
+				strcpy(packet, initialPacket);		// copy the initial packet to the packet being sent
+				connection.SendPacket((const unsigned char*)packet, sizeof(fileName));			// send the initial packet with the file name
+			}
 		}
 
-		if (!connected && connection.ConnectFailed())		// check if the connection has been broken
+		if (!connected && connection.ConnectFailed())			// check if the connection has failed
 		{
 			printf("connection failed\n");
-			return false;
+			break;
 		}
 
-		// send packet containing fileName
+		sendAccumulator += DeltaTime;
 
-		// send and receive packets
+		while (sendAccumulator > 1.0f / sendRate)				// send a packet 
+		{
+			char packet[PacketSize] = { 0 };
+
+			if (mode == Client && connected)				// if we are the client - read the contents of the file into a buffer
+			{
+				fread(packet, sizeof(char), PacketSize * sizeof(char), readFile);
+
+			};
+			connection.SendPacket((const unsigned char*)packet, sizeof(packet));		// send packet to server
+
+			sendAccumulator -= 1.0f / sendRate;
+			break;
+		}
 
 		while (true)
 		{
-			unsigned char packet[256];
-			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));		// while true constantly recieve 
-			if (bytes_read != 0)							// if nothin is read, return to outer while loop
+			char packet[PacketSize];
+
+			int bytes_read = connection.ReceivePacket((unsigned char*)packet, sizeof(packet));
+
+			if (bytes_read != 0)
 			{
-				printf("Recieved: %s \n", packet);
-				fileNameRecieved = true;
-				strcpy(fileName, (char* )packet);
+
+				if (mode == Server)							// check if we are 
+				{
+					if (packetsSent == initialPacketNum)				// check if we are recieving the file containing the fileName and file details
+					{
+						sscanf(packet, "%s-%d", fileName, &expectedPackets);
+
+						if ((writeFile = fopen(fileName, writeBin)) == NULL)			// check if we can open the file
+						{
+							printf("Could not write to file \n");
+							break;
+						}
+						++expectedPackets;
+						++packetsSent;
+						break;
+					}
+
+					fwrite(packet, sizeof(char), PacketSize * sizeof(char), writeFile);			// write the file to the newly created file
+					if (bytes_read != 0)
+					{
+						break;
+					}
+					expectedPackets++;
+				}
+			}
+			else
+			{
 				break;
 			}
 		}
 
-		sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
-
-		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
-		{
-			unsigned char packet[PacketSize];
-			strcpy((char*)packet, fileName);
-			connection.SendPacket(packet, sizeof(packet));
-			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
-		}
-
-		// show packets that were acked this frame
-
 #ifdef SHOW_ACKS
+
 		unsigned int* acks = NULL;
+
 		int ack_count = 0;
+
 		connection.GetReliabilitySystem().GetAcks(&acks, ack_count);
+
 		if (ack_count > 0)
 		{
 			printf("acks: %d", acks[0]);
@@ -307,276 +221,52 @@ bool server(ReliableConnection connection)
 				printf(",%d", acks[i]);
 			printf("\n");
 		}
+
 #endif
+		connection.Update(DeltaTime);
+		statsAccumulator += DeltaTime;
 
-		// update connection
-
-		connection.Update(DeltaTime);		// use this to determine if the connection has timed out
-	}
-
-	FILE* writeFile = NULL;
-	if ((writeFile = fopen(fileName, writeBin)) == NULL)
-	{
-		printf("could not open %s to write \n", fileName);
-		return false;
-	}
-
-	sendAccumulator = 0.0f;	// reset the sendAccumulator
-	// Recieve Lines to write
-
-	while (true)
-	{
-		// update flow control
-
-		if (connection.IsConnected())		// check if we are connected 
-			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);		// if we are connected then update with a constant time && round trip time 
-
-		const float sendRate = flowControl.GetSendRate();		// set sendRate based on the flowControl state (good || bad)
-
-		if (!connected && connection.IsConnected())			// check if the client is connected to the server
+		while (statsAccumulator >= 0.25f && connection.IsConnected())
 		{
-			printf("client connected to server\n");
-			connected = true;					// change the status of connected to reflect the state of the connection | we are connected so set connected=true
+			statsAccumulator -= 0.25f;
 		}
+		net::wait(DeltaTime);
 
-		if (!connected && connection.ConnectFailed())		// check if the connection has been broken
+		if (mode == Server && connected)				// check if we have recieved the last packet
 		{
-			printf("connection failed\n");
-			return false;
-		}
-
-		// send packet containing fileName
-
-		// send and receive packets
-
-		sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
-
-		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
-		{
-			unsigned char packet[PacketSize];
-			strcpy((char*)packet, fileName);
-			connection.SendPacket(packet, sizeof(packet));
-			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
-		}
-
-		while (true)
-		{
-			unsigned char packet[PacketSize];
-			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));		// while true constantly recieve 
-			if (bytes_read != 0)							// if nothin is read, return to outer while loop
+			if (packetsSent >= expectedPackets)
 			{
-				printf("Recieved: %s \n", packet);
-				strcpy(RecieveLine, (char*)packet);
+				if (writeFile != NULL)
+				{
+					fclose(writeFile);
+				}
 				break;
 			}
 		}
-
-		if (strcmp(RecieveLine, "") != 0)
-		{
-			fwrite(RecieveLine, sizeof(char), PacketSize, writeFile);
-		}
-
-		// show packets that were acked this frame
-
-#ifdef SHOW_ACKS
-		unsigned int* acks = NULL;
-		int ack_count = 0;
-		connection.GetReliabilitySystem().GetAcks(&acks, ack_count);
-		if (ack_count > 0)
-		{
-			printf("acks: %d", acks[0]);
-			for (int i = 1; i < ack_count; ++i)
-				printf(",%d", acks[i]);
-			printf("\n");
-		}
-#endif
-
-		// update connection
-
-		connection.Update(DeltaTime);		// use this to determine if the connection has timed out
-		clearBuffer(RecieveLine);
 	}
-
+	
 	fclose(writeFile);
-	return true;
+
+	connection.Stop();
+	net::ShutdownSockets();
+	return 0;
 }
 
 /*
 Function: 
-Parameters: 
+Parameters:
 Description:
-Returns: 
 */
-bool client(ReliableConnection connection, char* fileName)
+int calculateNumPackets(FILE* file)
 {
-	Mode mode = Client;
-	bool fileNameSent = false;
-	bool connected = false;
-	float sendAccumulator = 0.0f;
-	float statsAccumulator = 0.0f;
-	char sendLine[PacketSize] = "";
+	fseek(file, 0L, SEEK_END);
 
-	FlowControl flowControl;		// initialize a FlowControl Object
+	long int fileSize = ftell(file);				// get the size of the file
 
-	FILE* readFile = NULL;
-	if ((readFile = fopen(fileName, readBin)) == NULL)
-	{
-		printf("%s does not exist \n", fileName);
-		return false;
-	}
+	rewind(file);			// go back to the beginning of the file
 
-	// Send fileName first
-	while (!fileNameSent)	//while not at the end of file		
-	{
-		// update flow control
+	int numPackets = 0;
+	numPackets = (fileSize - (fileSize & PacketSize)) / PacketSize;
 
-		if (connection.IsConnected())		// check if we are connected 
-			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);		// if we are connected then update with a constant time && round trip time 
-
-		const float sendRate = flowControl.GetSendRate();		// set sendRate based on the flowControl state (good || bad)
-
-		if (!connected && connection.IsConnected())			// check if the client is connected to the server
-		{
-			printf("client connected to server\n");
-			connected = true;					// change the status of connected to reflect the state of the connection | we are connected so set connected=true
-		}
-
-		if (!connected && connection.ConnectFailed())		// check if the connection has been broken
-		{
-			printf("connection failed\n");
-			return false;
-		}
-
-		// send packet containing fileName
-
-		// send and receive packets
-
-		sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
-
-		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
-		{
-			unsigned char packet[PacketSize];
-			strcpy((char*)packet, fileName);
-			connection.SendPacket(packet, sizeof(packet));
-			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
-			printf("Sent: %s", packet);
-		}
-
-		while (true)
-		{
-			unsigned char packet[PacketSize];
-			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));		// while true constantly recieve 
-			if (bytes_read == 0)							// if nothin is read, return to outer while loop
-			{
-				break;
-			}
-			else
-			{
-				printf("Recieved: %s \n", packet);
-				fileNameSent = true;
-			}
-		}
-
-		// show packets that were acked this frame
-
-#ifdef SHOW_ACKS
-		unsigned int* acks = NULL;
-		int ack_count = 0;
-		connection.GetReliabilitySystem().GetAcks(&acks, ack_count);
-		if (ack_count > 0)
-		{
-			printf("acks: %d", acks[0]);
-			for (int i = 1; i < ack_count; ++i)
-				printf(",%d", acks[i]);
-			printf("\n");
-		}
-#endif
-
-		// update connection
-
-		connection.Update(DeltaTime);		// use this to determine if the connection has timed out
-	}
-
-	// ------------------------------
-	// read from file and send content
-	while (fread(sendLine, sizeof(char), (PacketSize), readFile) != 0)
-	{
-		if (connection.IsConnected())		// check if we are connected 
-			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);		// if we are connected then update with a constant time && round trip time 
-
-		const float sendRate = flowControl.GetSendRate();		// set sendRate based on the flowControl state (good || bad)
-
-		if (!connected && connection.IsConnected())			// check if the client is connected to the server
-		{
-			printf("client connected to server\n");
-			connected = true;					// change the status of connected to reflect the state of the connection | we are connected so set connected=true
-		}
-
-		if (!connected && connection.ConnectFailed())		// check if the connection has been broken
-		{
-			printf("connection failed\n");
-			return false;
-		}
-
-		// send packet containing fileName
-
-		// send and receive packets
-
-		sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
-
-		while (sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
-		{
-			connection.SendPacket((const unsigned char* )sendLine, sizeof(sendLine));
-			sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
-			printf("Sent: %s", sendLine);
-		}
-
-		while (true)
-		{
-			unsigned char packet[256];
-			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));		// while true constantly recieve 
-			if (bytes_read == 0)							// if nothin is read, return to outer while loop
-			{
-				break;
-			}
-			else
-			{
-				printf("Recieved: %s \n", packet);
-			}
-		}
-
-		// show packets that were acked this frame
-
-#ifdef SHOW_ACKS
-		unsigned int* acks = NULL;
-		int ack_count = 0;
-		connection.GetReliabilitySystem().GetAcks(&acks, ack_count);
-		if (ack_count > 0)
-		{
-			printf("acks: %d", acks[0]);
-			for (int i = 1; i < ack_count; ++i)
-				printf(",%d", acks[i]);
-			printf("\n");
-		}
-#endif
-
-		// update connection
-
-		connection.Update(DeltaTime);		// use this to determine if the connection has timed out
-		clearBuffer(sendLine);
-	}
-
-	fclose(readFile);		// close the file for reading
-
-	return true;
+	return numPackets;
 }
-
-void clearBuffer(char* buffer)
-{
-	for (size_t i = 0; i < strlen(buffer); i++)
-	{
-		buffer[i] = '\0';
-	}
-}
-
-
