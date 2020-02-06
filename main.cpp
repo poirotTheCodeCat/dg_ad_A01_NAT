@@ -1,4 +1,26 @@
 /*
+ * File Name: main.cpp
+ * Program Name: dg_ad_A01_NAT
+ * Programmers: Amy Dayasundara, Daniel Grew
+ * First Version: 2020-02-04
+ * Description: 
+ *		This main contains the execution of the client and the server
+ *		sending packets between the network. It should calculate
+ *		the number of packets to the server and the server will respond 
+ *		with the exact number that was recieved
+ */
+
+ //This fails at Line 200. Reason:
+ //
+ //There is an issue with the object for connecting - probable assumption
+ //for not recieving information is that there is a direct loss of the packets
+ //in the server
+ //What we could have improved on is separating separating the Client and
+ //Server into appropriate while loops rather than having them weave within
+ //one loop. 
+
+
+/*
 	Reliability and Flow Control Example
 	From "Networking for Game Programmers" - http://www.gaffer.org/networking-for-game-programmers
 	Author: Glenn Fiedler <gaffer@gaffer.org>
@@ -80,10 +102,10 @@ int main(int argc, char* argv[])
 		return error;
 	}
 
-
+	// Client connected 
 	if (mode == Client)
 		connection.Connect(address);		// connect to the specified address
-
+	//Set the server to listen
 	else
 		connection.Listen();				// set connection state to Listening
 
@@ -97,7 +119,8 @@ int main(int argc, char* argv[])
 	FILE* writeFile = NULL;					// file used by server
 
 	int expectedPackets = 0;
-
+	
+	//Client connected and opens the file that should be read
 	if (mode == Client)
 	{
 		if ((readFile = fopen(fileName, readBin)) == NULL)				// check if file exists - if yes - open for writing 
@@ -107,13 +130,15 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	//Keep running until server and client are forced closed
 	while (true)				// constantly loop through send and recieve functionality
 	{
+		// gets the state of the connection of the connection object 
 		if (connection.IsConnected())
 			flowControl.Update(DeltaTime, connection.GetReliabilitySystem().GetRoundTripTime() * 1000.0f);
 
 		const float sendRate = flowControl.GetSendRate();
-
+	
 		if (mode == Server && connected && !connection.IsConnected())
 		{
 			flowControl.Reset();
@@ -125,23 +150,6 @@ int main(int argc, char* argv[])
 		{
 			printf("client connected to server\n");
 			connected = true;
-
-			char packet[sizeof(fileName)];
-
-			if (mode == Client)				// if we are the client, send the fileName to the server as the initial packet
-			{
-				// ================================
-				// Construct Initial Packet
-				// ================================
-
-				char initialPacket[PacketSize] = "";
-				sprintf(initialPacket, "%s-%d", fileName, calculateNumPackets(readFile));		// create initial
-
-				// ================================
-
-				strcpy(packet, initialPacket);		// copy the initial packet to the packet being sent
-				connection.SendPacket((const unsigned char*)packet, sizeof(fileName));			// send the initial packet with the file name
-			}
 		}
 
 		if (!connected && connection.ConnectFailed())			// check if the connection has failed
@@ -152,35 +160,53 @@ int main(int argc, char* argv[])
 
 		sendAccumulator += DeltaTime;
 
+		if (mode == Client && packetsSent == 0)				// if we are the client, send the fileName to the server as the initial packet
+		{
+			// ================================
+			// Construct Initial Packet
+			// ================================
+			char packet[sizeof(fileName)];
+
+			char initialPacket[PacketSize] = "";
+			sprintf(initialPacket, "%s-%d", fileName, calculateNumPackets(readFile));		// create initial
+
+			// ================================
+
+			strcpy(packet, initialPacket);		// copy the initial packet to the packet being sent
+			connection.SendPacket((const unsigned char*)packet, sizeof(fileName));			// send the initial packet with the file name
+			packetsSent++;
+		}
+
+		//Continually loop the accumulator for the client to send the packet to the 
+		//server. The Client would read char 
 		while (sendAccumulator > 1.0f / sendRate)				// send a packet 
 		{
 			char packet[PacketSize] = { 0 };
 
-			if (mode == Client && connected)				// if we are the client - read the contents of the file into a buffer
+			if (mode == Client)				// if we are the client - read the contents of the file into a buffer
 			{
 				fread(packet, sizeof(char), PacketSize * sizeof(char), readFile);
-
-			};
+			}
 			connection.SendPacket((const unsigned char*)packet, sizeof(packet));		// send packet to server
-
+			packetsSent++;
 			sendAccumulator -= 1.0f / sendRate;
 			break;
 		}
 
-		while (true)
+		while (true) //Having issues receiving the packets from the client side
 		{
-			char packet[PacketSize];
+			unsigned char packet[PacketSize];
 
-			int bytes_read = connection.ReceivePacket((unsigned char*)packet, sizeof(packet));
+			int bytes_read = connection.ReceivePacket(packet, sizeof(packet));
 
 			if (bytes_read != 0)
 			{
-
+				printf("rec: %s \n", packet);
 				if (mode == Server)							// check if we are 
 				{
 					if (packetsSent == initialPacketNum)				// check if we are recieving the file containing the fileName and file details
 					{
-						sscanf(packet, "%s-%d", fileName, &expectedPackets);
+						sscanf((char* )packet, "%s-%d", fileName, &expectedPackets);
 
 						if ((writeFile = fopen(fileName, writeBin)) == NULL)			// check if we can open the file
 						{
@@ -191,6 +217,7 @@ int main(int argc, char* argv[])
 						++packetsSent;
 						break;
 					}
+
 
 					fwrite(packet, sizeof(char), PacketSize * sizeof(char), writeFile);			// write the file to the newly created file
 					if (bytes_read != 0)
@@ -244,8 +271,10 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-	
-	fclose(writeFile);
+	if (mode == Server)
+	{
+		fclose(writeFile);
+	}
 
 	connection.Stop();
 	net::ShutdownSockets();
@@ -253,9 +282,10 @@ int main(int argc, char* argv[])
 }
 
 /*
-Function: 
-Parameters:
+Function: calculateNumPackets
+Parameters: FILE* file - send file analyse the number of bytes in the file
 Description:
+		Calculates the number of packets required to transfer a file
 */
 int calculateNumPackets(FILE* file)
 {
