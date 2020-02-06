@@ -45,7 +45,7 @@ enum Mode
 void clearBuffer(char* buffer);
 bool server(ReliableConnection& connection);
 bool client(ReliableConnection& connection, char* fileName);
-bool sendLine(ReliableConnection& connection, char* line, float* sendAccumulator, FlowControl& flowControl);
+bool sendLine(ReliableConnection& connection, char* line, float* sendAccumulator, FlowControl flowControl);
 void RecieveLine(ReliableConnection& connection, char* recieveBuffer);
 bool updateConnection(ReliableConnection& connection, FlowControl& flowControl, bool* connected, Mode mode);
 int calculatePacketNum(FILE* file);
@@ -250,25 +250,28 @@ bool server(ReliableConnection& connection)
 	int packetCount = 0;
 
 	FlowControl flowControl;		// initialize a FlowControl Object
-	while (true)
+	while (true)					// wait for the first packet to arrive
 	{
-		if (!updateConnection(connection, flowControl, &connected, mode))
+		if (!updateConnection(connection, flowControl, &connected, mode))		// update the connection
 		{
 			return false;
 		}
 		RecieveLine(connection, firstPacket);			// recieve first packet
 		if (strcmp(firstPacket, "") != 0)
 		{
+			printf("File Name: %s			Expected number of Packets: %d \n", fileName, numPackets);
+			sendLine(connection, confirm, &sendAccumulator, flowControl);			// send a confirmation
 			break;
 		}
+
 	}
 	if ((sscanf(firstPacket, "%s %d", fileName, &numPackets)) != firstPacketNum)
 	{
 		return false;
 	}
-	printf("File Name: %s			Expected number of Packets: %d \n", fileName, numPackets);
-	sendLine(connection, confirm, &sendAccumulator, flowControl);			// send a confirmation
 
+	connection.Update(DeltaTime);
+	net::wait(DeltaTime);
 
 	while (packetCount <= numPackets)
 	{
@@ -281,10 +284,18 @@ bool server(ReliableConnection& connection)
 
 		printf("Recieved: %s \n", packet);
 
-		clearBuffer(packet);		// clear what is currently in the packet being retrieved from the client 
+		memset(packet, 0, sizeof(packet));		// clear what is currently in the packet being retrieved from the client 
 		packetCount++;
+
+		connection.Update(DeltaTime);
+		net::wait(DeltaTime);
 	}
-	updateConnection(connection, flowControl, &connected, mode);
+	printf("File Transfer Complete \n");
+
+	if (!updateConnection(connection, flowControl, &connected, mode))
+	{
+		return false;
+	}
 	sendLine(connection, confirm, &sendAccumulator, flowControl);
 
 	return true;
@@ -305,6 +316,7 @@ bool client(ReliableConnection& connection, char* fileName)
 	float statsAccumulator = 0.0f;
 	char packet[PacketSize] = "";
 	char confirm[PacketSize] = "";
+	bool firstPacketSent = false;
 
 	FlowControl flowControl;		// initialize a FlowControl Object
 
@@ -318,6 +330,7 @@ bool client(ReliableConnection& connection, char* fileName)
 	int packetNum = calculatePacketNum(sendFile);
 
 	sprintf(packet, "%s %d", fileName, packetNum);
+
 	while (true)			// Here we are trying to send the first packet containing the file information
 	{
 		if (!updateConnection(connection, flowControl, &connected, mode))	// update the connection and flowcontrol classes that we are using
@@ -325,13 +338,20 @@ bool client(ReliableConnection& connection, char* fileName)
 			fclose(sendFile);
 			return false;
 		}
-		sendLine(connection, packet, &sendAccumulator, flowControl);
+		if (firstPacketSent == false)
+		{
+			connection.SendPacket((const unsigned char*)packet, sizeof(packet));		// send the initial packet to the server
+			firstPacketSent = true;
+		}
+
 		RecieveLine(connection, confirm);				// wait for confirmation from the server
 		if (strcmp(confirm, confirmation) == 0)			// make sure the file information was successfully transferred
 		{
 			printf("Successfully sent file information \n");
 			break;
 		}
+		connection.Update(DeltaTime);
+		net::wait(DeltaTime);
 	}
 	clearBuffer(packet);
 	clearBuffer(confirm);
@@ -345,6 +365,9 @@ bool client(ReliableConnection& connection, char* fileName)
 		}
 		sendLine(connection, packet, &sendAccumulator, flowControl);		// send the current line being read from the file
 		RecieveLine(connection, confirm);									// wait for confirmation from the server
+
+		connection.Update(DeltaTime);
+		net::wait(DeltaTime);
 
 		clearBuffer(packet);
 		clearBuffer(confirm);
@@ -362,11 +385,7 @@ Returns:
 */
 void clearBuffer(char* buffer)
 {
-	size_t buffLen = strlen(buffer);
-	for (size_t i = 0; i < buffLen; i++)
-	{
-		buffer[i] = '\0';
-	}
+	memcpy(buffer, "", sizeof(buffer));
 }
 
 /*
@@ -411,19 +430,19 @@ Parameters:
 Description:
 Returns:
 */
-bool sendLine(ReliableConnection& connection, char* line, float* sendAccumulator, FlowControl& flowControl)
+bool sendLine(ReliableConnection& connection, char* line, float* sendAccumulator, FlowControl flowControl)
 {
 		*sendAccumulator += DeltaTime;		// increase sendAccumulator every time while executes
 		unsigned char packet[PacketSize];
 		memcpy((char*)packet, line, PacketSize);
+		float sendRate = flowControl.GetSendRate();
 
-		while (*sendAccumulator > 1.0f / flowControl.GetSendRate())		// sendrate is a constant | send until sendAccumulator runs out
+
+		while (*sendAccumulator > 1.0f / sendRate)		// sendrate is a constant | send until sendAccumulator runs out
 		{
 			connection.SendPacket(packet, sizeof(packet));
-			*sendAccumulator -= 1.0f / flowControl.GetSendRate();		// subtracts from sendAccumulator every time a packet is sent
+			*sendAccumulator -= 1.0f / sendRate;		// subtracts from sendAccumulator every time a packet is sent
 		}
-		printf("Sent : %s \n", packet);
-		//Clean packet because its trying to overwrite packet values 
 
 		return true;
 }
@@ -437,6 +456,10 @@ Returns:
 void RecieveLine(ReliableConnection& connection, char* recieveBuffer)
 {
 	char bufferRecieve[PacketSize] = "";
+	char emptyCheck[PacketSize] = "";
+
+	memset(emptyCheck, ' ', PacketSize);
+
 	while (true)
 	{
 		unsigned char packet[256];
@@ -447,10 +470,10 @@ void RecieveLine(ReliableConnection& connection, char* recieveBuffer)
 		}
 		else
 		{
-				printf("Recieved: %s \n", packet);
-				if (strcmp((char* )packet, "") != 0 && strcmp(bufferRecieve, (char *)packet) != 0)	// determine if we can use the packet
+				if (memcmp(packet, emptyCheck, sizeof(packet)) != 0 && memcmp(bufferRecieve, (char *)packet, sizeof(packet)) != 0)	// determine if we can use the packet
 				{
 					memcpy(bufferRecieve, (char*)packet, PacketSize);		// copy the contents of the recieved packet to the buffer
+					printf("Recieved: %s \n", packet);
 				}
 		}
 	}
